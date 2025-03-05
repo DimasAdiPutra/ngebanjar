@@ -5,6 +5,7 @@ import { profile } from './config/profile'
 // Pastikan struktur data sesuai
 profile.set({
 	name: null,
+	username: null,
 	password: null,
 	score: 0,
 	words: [],

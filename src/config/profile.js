@@ -14,12 +14,12 @@ import { get, writable } from 'svelte/store'
 // Buat store
 export const profile = writable(null)
 
-export const name = writable(null)
+export const username = writable(null)
 
 export const userId = writable('')
 
-export const getProfile = async (name) => {
-	const q = query(collection(db, 'users'), where('name', '==', name))
+export const getProfile = async (username) => {
+	const q = query(collection(db, 'users'), where('username', '==', username))
 
 	try {
 		const querySnapshot = await getDocs(q)
@@ -30,6 +30,7 @@ export const getProfile = async (name) => {
 			// Pastikan struktur data sesuai
 			profile.set({
 				name: data.name || '',
+				username: data.username || '',
 				password: data.password || '',
 				score: data.score || 0,
 				words: Array.isArray(data.words) ? data.words : [],
@@ -51,15 +52,16 @@ export const getProfile = async (name) => {
 				return p
 			})
 
-			if (shouldSave && name !== null) {
-				await saveProfile(get(profile), name)
+			if (shouldSave && username !== null) {
+				await saveProfile(get(profile), username)
 			}
 		} else {
 			console.log('No such document!')
 
 			// Pastikan struktur data sesuai
 			profile.set({
-				name: name,
+				name: '',
+				username: username,
 				password: '',
 				score: 0,
 				words: [],
@@ -81,14 +83,15 @@ export const getProfile = async (name) => {
 				return p
 			})
 
-			if (shouldSave && name !== null) {
-				await saveProfile(get(profile), name)
+			if (shouldSave && username !== null) {
+				await saveProfile(get(profile), username)
 			}
 		}
 	} catch (error) {
 		console.error('Error loading data:', error)
 		profile.set({
-			name: name,
+			name: '',
+			username: username,
 			password: '',
 			score: 0,
 			words: [],
@@ -98,7 +101,7 @@ export const getProfile = async (name) => {
 	}
 }
 
-export const saveProfile = async (profile, name) => {
+export const saveProfile = async (profile, username) => {
 	try {
 		if (!profile || typeof profile !== 'object') {
 			throw new Error('Invalid profile data')
@@ -116,8 +119,8 @@ export const saveProfile = async (profile, name) => {
 			return true
 		}
 
-		// Cari dokumen dengan name yang sesuai
-		const q = query(collection(db, 'users'), where('name', '==', name))
+		// Cari dokumen dengan username yang sesuai
+		const q = query(collection(db, 'users'), where('username', '==', username))
 		const querySnapshot = await getDocs(q)
 
 		if (!querySnapshot.empty) {
@@ -139,30 +142,38 @@ export const saveProfile = async (profile, name) => {
 }
 
 // Fungsi Login
-export const login = async (name, password) => {
+export const login = async (username, password) => {
 	try {
-		if (!name) {
+		if (!username) {
 			return {
 				success: false,
-				errors: { name: 'Jangan kosong ya namanya', password: '' },
+				errors: {
+					name: '',
+					username: 'Jangan kosong ya namanya',
+					password: '',
+				},
 			}
 		}
 
 		if (!password) {
 			return {
 				success: false,
-				errors: { name: '', password: 'Password tidak boleh kosong' },
+				errors: {
+					name: '',
+					username: '',
+					password: 'Password tidak boleh kosong',
+				},
 			}
 		}
 
-		// Cari user berdasarkan name di database
-		const q = query(collection(db, 'users'), where('name', '==', name))
+		// Cari user berdasarkan username di database
+		const q = query(collection(db, 'users'), where('username', '==', username))
 		const querySnapshot = await getDocs(q)
 
 		if (querySnapshot.empty) {
 			return {
 				success: false,
-				errors: { name: 'User tidak ditemukan', password: '' },
+				errors: { name: '', username: 'User tidak ditemukan', password: '' },
 			}
 		}
 
@@ -172,49 +183,68 @@ export const login = async (name, password) => {
 		if (userData.password !== password) {
 			return {
 				success: false,
-				errors: { name: '', password: 'Password salah' },
+				errors: { name: '', username: '', password: 'Password salah' },
 			}
 		}
 
-		await getProfile(name)
+		await getProfile(username)
 		// Simpan sesi user
 		sessionStorage.setItem('userId', userDoc.id)
 		return { success: true, user: { id: userDoc.id, ...userData } }
 	} catch (error) {
-		return { success: false, errors: { name: '', password: error.message } }
+		return {
+			success: false,
+			errors: { name: '', username: '', password: error.message },
+		}
 	}
 }
 
 // Fungsi Register
-export const register = async (name, password) => {
+export const register = async (name, username, password) => {
 	try {
 		if (!name) {
 			return {
 				success: false,
-				errors: { name: 'Jangan kosong ya namanya', password: '' },
+				errors: {
+					name: 'Jangan kosong ya namanya',
+					username: '',
+					password: '',
+				},
+			}
+		}
+
+		if (!username) {
+			return {
+				success: false,
+				errors: { name: '', username: 'Username harus di isi', password: '' },
 			}
 		}
 
 		if (!password) {
 			return {
 				success: false,
-				errors: { name: '', password: 'Password tidak boleh kosong' },
+				errors: {
+					name: '',
+					username: '',
+					password: 'Password tidak boleh kosong',
+				},
 			}
 		}
 
 		// Cek apakah user sudah ada
-		const q = query(collection(db, 'users'), where('name', '==', name))
+		const q = query(collection(db, 'users'), where('username', '==', username))
 		const querySnapshot = await getDocs(q)
 
 		if (!querySnapshot.empty) {
 			return {
 				success: false,
-				errors: { name: 'Nama sudah digunakan', password: '' },
+				errors: { name: '', username: 'Nama sudah digunakan', password: '' },
 			}
 		}
 
 		const newProfile = {
 			name,
+			username,
 			password,
 			score: 0,
 			words: [],
@@ -234,8 +264,11 @@ export const register = async (name, password) => {
 		const newUserRef = await addDoc(collection(db, 'users'), newProfile)
 		// Simpan sesi user
 		sessionStorage.setItem('userId', newUserRef.id)
-		return { success: true, user: { id: newUserRef.id, name, score: 0 } }
+		return { success: true, user: { id: newUserRef.id, username, score: 0 } }
 	} catch (error) {
-		return { success: false, errors: { name: '', password: error.message } }
+		return {
+			success: false,
+			errors: { name: '', username: '', password: error.message },
+		}
 	}
 }

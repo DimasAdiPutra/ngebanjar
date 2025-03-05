@@ -7,15 +7,17 @@
 	const dispatcher = createEventDispatcher()
 
 	let name = $profile.name
+	let username = $profile.username
 	let password = $profile.password
+	let isRegistering = false // Toggle untuk mode register/login
 
-	export let errors = { name: '', password: '' } // Tambahkan prop error
+	export let errors = { name: '', username: '', password: '' } // Tambahkan prop error
 
 	const login = () => {
-		dispatcher('login', { name, password })
+		dispatcher('login', { username, password })
 	}
 	const register = () => {
-		dispatcher('register', { name, password })
+		dispatcher('register', { name, username, password })
 	}
 
 	function logout() {
@@ -29,13 +31,34 @@
 
 <div class="backdrop">
 	<div class="modal">
-		<h2>Selamat Datang, Pejuang Bahasa Banjar!</h2>
-		<p>{$profile.name ? `` : `Kita kenalan dulu yuk`}</p>
+		{#if $userId}
+			<h2>Selamat Datang, Pejuang Bahasa Banjar!</h2>
+			<p>Apa pelajarannya menyenangkan?</p>
+		{:else}
+			<h2>
+				{isRegistering
+					? 'Buat Akun Baru'
+					: 'Selamat Datang, Pejuang Bahasa Banjar!'}
+			</h2>
+			<p>
+				{isRegistering
+					? 'Isi data di bawah untuk mendaftar'
+					: 'Silakan login terlebih dahulu'}
+			</p>
+		{/if}
 
 		<div class="input-wrapper">
-			<Input placeholder="Nama kamu siapa?" bind:value={name}>
-				{#if errors.name}
-					<small class="warning-text">{errors.name}</small>
+			{#if isRegistering}
+				<Input placeholder="Nama kamu siapa?" bind:value={name}>
+					{#if errors.name}
+						<small class="warning-text">{errors.name}</small>
+					{/if}
+				</Input>
+			{/if}
+
+			<Input placeholder="Username" bind:value={username}>
+				{#if errors.username}
+					<small class="warning-text">{errors.username}</small>
 				{/if}
 			</Input>
 			{#if !$userId}
@@ -47,7 +70,7 @@
 			{/if}
 		</div>
 
-		{#if $profile.name}
+		{#if $profile.username}
 			<div class="close-button">
 				<CircleButton
 					class="red background-none"
@@ -75,12 +98,21 @@
 
 		<div class="button-groups">
 			{#if !$userId}
-				<CircleButton class="orange" on:click={login}>
-					<p class="text-white">Login</p>
-				</CircleButton>
-				<CircleButton class="orange" on:click={register}>
-					<p class="text-white">Register</p>
-				</CircleButton>
+				{#if isRegistering}
+					<CircleButton class="orange" on:click={register}>
+						<p class="text-white">Register</p>
+					</CircleButton>
+					<CircleButton class="orange" on:click={() => (isRegistering = false)}>
+						<p class="text-white">Login</p>
+					</CircleButton>
+				{:else}
+					<CircleButton class="orange" on:click={login}>
+						<p class="text-white">Login</p>
+					</CircleButton>
+					<CircleButton class="orange" on:click={() => (isRegistering = true)}>
+						<p class="text-white">Register</p>
+					</CircleButton>
+				{/if}
 			{:else}
 				<CircleButton class="orange" on:click={logout}>
 					<p class="text-white">Logout</p>

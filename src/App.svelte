@@ -10,7 +10,7 @@
 	import { onMount } from 'svelte'
 	import {
 		profile,
-		name,
+		username,
 		saveProfile,
 		login,
 		register,
@@ -69,24 +69,24 @@
 
 	let index = startIndex
 
-	let errors = { name: '', password: '' } // State untuk menyimpan error
+	let errors = { name: '', username: '', password: '' } // State untuk menyimpan error
 
 	window.addEventListener('beforeunload', () => {
 		sessionStorage.clear() // Menghapus semua data di sessionStorage
 	})
 
 	const submitLogin = async (e) => {
-		const result = await login(e.detail.name, e.detail.password)
+		const result = await login(e.detail.username, e.detail.password)
 
 		if (!result.success) {
 			errors = result.errors // Simpan error dari login() ke state
 			return // Jangan lanjutkan jika gagal login
 		}
 
-		errors = { name: '', password: '' }
+		errors = { name: '', username: '', password: '' }
 
 		//  Simpan data sementara
-		$profile.name = e.detail.name
+		$profile.username = e.detail.username
 		$profile.password = e.detail.password
 
 		userId.set(sessionStorage.getItem('userId'))
@@ -96,17 +96,22 @@
 	}
 
 	const submitRegister = async (e) => {
-		const result = await register(e.detail.name, e.detail.password)
+		const result = await register(
+			e.detail.name,
+			e.detail.username,
+			e.detail.password
+		)
 
 		if (!result.success) {
 			errors = result.errors // Simpan error dari login() ke state
 			return // Jangan lanjutkan jika gagal login
 		}
 
-		errors = { name: '', password: '' }
+		errors = { name: '', username: '', password: '' }
 
 		//  Simpan data sementara
 		$profile.name = e.detail.name
+		$profile.username = e.detail.username
 		$profile.password = e.detail.password
 
 		userId.set(sessionStorage.getItem('userId'))
@@ -126,7 +131,7 @@
 		$profile.reports[today].score = score
 		$profile.score += score
 
-		await saveProfile($profile, $name)
+		await saveProfile($profile, $username)
 
 		if ($profile.words.length === words.length) {
 			page = 'finish'
@@ -146,7 +151,7 @@
 
 		index++
 
-		await saveProfile($profile, $name)
+		await saveProfile($profile, $username)
 
 		if (wayToGoToday <= 1 || index > words.length - 1) {
 			getPage()
