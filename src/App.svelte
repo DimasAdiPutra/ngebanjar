@@ -65,7 +65,7 @@
 	const today = new Date().toDateString()
 	let startIndex = $profile.words.length
 	$: learnedToday = $profile.reports[today].words.length
-	$: wayToGoToday = 5 - learnedToday
+	$: wayToGoToday = 11 - learnedToday
 
 	let index = startIndex
 

@@ -7,16 +7,31 @@
 
 	const dispatcher = createEventDispatcher()
 
-	const getWordIndex = () => {
-		const min = Math.ceil(startIndex)
-		const max = Math.floor(index - 1)
-		const randomInt = Math.floor(Math.random() * (max - min + 1)) + min
-		if (dictionaries[words[randomInt]].examples) {
-			return randomInt
-		}
+	export let index
+	let questionIndex = 0
+	let totalQuestions = 10
+	let answers = []
+	let score = 0
+	const usedQuestions = new Set() // Menyimpan indeks soal yang sudah muncul
 
-		return getWordIndex()
+	const getWordIndex = () => {
+		if (usedQuestions.size >= totalQuestions) return -1 // Cegah infinite loop
+
+		let randomInt
+		do {
+			const min = Math.ceil(startIndex)
+			const max = Math.floor(index - 1)
+			randomInt = Math.floor(Math.random() * (max - min + 1)) + min
+		} while (
+			usedQuestions.has(randomInt) ||
+			!dictionaries[words[randomInt]].examples
+		)
+
+		usedQuestions.add(randomInt) // Tandai soal sebagai sudah digunakan
+		console.log({ getWordIndex: randomInt })
+		return randomInt
 	}
+
 	const shuffleArray = (arr) => {
 		for (let i = arr.length - 1; i > 0; i--) {
 			const j = Math.floor(Math.random() * (i + 1))
@@ -24,15 +39,14 @@
 		}
 		return arr
 	}
-	export let index
 
 	const todayLearnedWord =
 		$profile.reports[new Date().toDateString()].words.length
 	const startIndex = index - todayLearnedWord
 
-	const wordIndex = getWordIndex()
-	const word = words[wordIndex]
-	const dictionary = dictionaries[word]
+	let wordIndex = getWordIndex()
+	let word = words[wordIndex]
+	let dictionary = dictionaries[word]
 
 	const getRandomWord = () => {
 		const min = Math.ceil(0)
@@ -43,13 +57,17 @@
 			return getRandomWord()
 		}
 
+		console.log({ getRandomWord: words[randomInt] })
 		return words[randomInt]
 	}
 
-	const choices = new Array(3).fill(null).map((_) => getRandomWord())
-	choices.push(words[wordIndex])
-	const shuffledChoices = shuffleArray(choices)
+	const generateChoices = () => {
+		const choices = new Array(3).fill(null).map(() => getRandomWord())
+		choices.push(words[wordIndex])
+		return shuffleArray(choices)
+	}
 
+	let choices = generateChoices()
 	let question = dictionary.examples[0]
 
 	if ($profile.words.length === words.length) {
@@ -58,26 +76,53 @@
 
 	const maxCounter = 60
 	let counter = maxCounter
+	let interval
 
-	const interval = setInterval(() => {
-		clickedUp.load()
-		clickedUp.play().then(() => {
-			counter--
+	const startTimer = () => {
+		clearInterval(interval)
+		counter = maxCounter
+		interval = setInterval(() => {
+			clickedUp.load()
+			clickedUp.play().then(() => {
+				counter--
+				if (counter <= 0) {
+					clearInterval(interval)
+					location.href = '#timeout'
+				}
+			})
+		}, 1000)
+	}
 
-			if (counter <= 0) {
-				clearInterval(interval)
-				location.href = '#timeout'
-			}
-		})
-	}, 1000)
+	startTimer()
+
+	const nextQuestion = () => {
+		if (questionIndex < totalQuestions - 1) {
+			questionIndex++
+			wordIndex = getWordIndex()
+			if (wordIndex === -1)
+				return dispatcher('quiz', {
+					score: answers.filter(Boolean).length * 10,
+				})
+
+			word = words[wordIndex]
+			dictionary = dictionaries[word]
+			choices = generateChoices()
+			question = dictionary.examples[0]
+			startTimer()
+		} else {
+			dispatcher('quiz', { score }) // Kirim score setelah 10 soal
+		}
+	}
 
 	const submit = (w) => {
 		clearInterval(interval)
-		if (w === word) {
-			const score = Math.ceil((counter / 60) * 100)
-			dispatcher('quiz', { score })
+		answers.push(w === word)
+
+		if (questionIndex < totalQuestions - 1) {
+			nextQuestion()
 		} else {
-			dispatcher('quiz', { score: -1 })
+			const score = answers.filter(Boolean).length * 10
+			dispatcher('quiz', { score }) // Kirim score terakhir
 		}
 	}
 
@@ -88,12 +133,14 @@
 	<h1>KUIS</h1>
 	<h2>{counter.toString().padStart(2, '0')}</h2>
 	<p class="instruction">Lengkapi kalimat berikut:</p>
-	<p class="question">"{question.banjar.replace(word, '___')}"</p>
+	<p class="question">
+		{questionIndex + 1}. "{question.banjar.replace(word, '___')}"
+	</p>
 	<p class="hint">{question.indonesia}</p>
 
 	<div class="answer-wrapper">
 		<div class="answers">
-			{#each shuffledChoices as choice}
+			{#each choices as choice}
 				<Button
 					on:click={() => submit(choice)}
 					class="fixed-size background-purple orange">{choice}</Button
